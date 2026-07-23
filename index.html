@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RO Machine · POLINDRA</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- HEADER -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo"><i class="fas fa-tint"></i></div>
+        <div>
+          <h1>Reverse Osmosis Machine</h1>
+          <span class="subtitle">Politeknik Negeri Indramayu · Real‑time Monitoring</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="themeToggle" title="Toggle theme">
+          <i class="fas fa-moon"></i>
+        </button>
+        <button class="btn btn-outline" id="exportExcel"><i class="fas fa-file-excel"></i> Excel</button>
+        <button class="btn btn-primary" id="refreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+      </div>
+    </header>
+
+    <!-- STATUS ROW -->
+    <div class="status-row">
+      <div class="status-item"><i class="fas fa-check-circle" style="color:#22c55e;"></i> System Online</div>
+      <div class="status-item"><i class="fas fa-clock"></i> Last update: <span id="lastUpdate">--:--:--</span></div>
+      <div class="status-item"><i class="fas fa-database"></i> Records today: <span id="recordCount">0</span></div>
+    </div>
+
+    <!-- 3 TANKS (Realistic 3D CSS) -->
+    <section class="tanks-section">
+      <div class="tank-card" id="tank1">
+        <div class="tank-header">
+          <h3><i class="fas fa-droplet"></i> Main Tank 1</h3>
+          <span class="capacity">3300 L</span>
+        </div>
+        <div class="tank-3d-wrapper">
+          <div class="tank-3d">
+            <!-- Body -->
+            <div class="tank-body">
+              <div class="tank-cylinder">
+                <div class="tank-wall">
+                  <div class="tank-rib tank-rib-top"></div>
+                  <div class="tank-rib tank-rib-mid"></div>
+                  <div class="tank-rib tank-rib-bottom"></div>
+                  <div class="tank-shadow"></div>
+                  <div class="water" id="water1"></div>
+                  <div class="water-surface"></div>
+                </div>
+              </div>
+              <div class="tank-cap"></div>
+            </div>
+            <div class="tank-base"></div>
+          </div>
+        </div>
+        <div class="tank-stats">
+          <div><span class="label">Level</span> <span class="value" id="level1">0.0</span> cm</div>
+          <div><span class="label">Volume</span> <span class="value" id="vol1">0</span> L</div>
+          <div><span class="label">Fill</span> <span class="value" id="pct1">0</span>%</div>
+        </div>
+      </div>
+
+      <div class="tank-card" id="tank2">
+        <div class="tank-header">
+          <h3><i class="fas fa-droplet"></i> Main Tank 2</h3>
+          <span class="capacity">3300 L</span>
+        </div>
+        <div class="tank-3d-wrapper">
+          <div class="tank-3d">
+            <div class="tank-body">
+              <div class="tank-cylinder">
+                <div class="tank-wall">
+                  <div class="tank-rib tank-rib-top"></div>
+                  <div class="tank-rib tank-rib-mid"></div>
+                  <div class="tank-rib tank-rib-bottom"></div>
+                  <div class="tank-shadow"></div>
+                  <div class="water" id="water2"></div>
+                  <div class="water-surface"></div>
+                </div>
+              </div>
+              <div class="tank-cap"></div>
+            </div>
+            <div class="tank-base"></div>
+          </div>
+        </div>
+        <div class="tank-stats">
+          <div><span class="label">Level</span> <span class="value" id="level2">0.0</span> cm</div>
+          <div><span class="label">Volume</span> <span class="value" id="vol2">0</span> L</div>
+          <div><span class="label">Fill</span> <span class="value" id="pct2">0</span>%</div>
+        </div>
+      </div>
+
+      <div class="tank-card highlight" id="tank3">
+        <div class="tank-header">
+          <h3><i class="fas fa-star"></i> Main Tank 3 <small>(Primary)</small></h3>
+          <span class="capacity">1100 L</span>
+        </div>
+        <div class="tank-3d-wrapper">
+          <div class="tank-3d">
+            <div class="tank-body">
+              <div class="tank-cylinder">
+                <div class="tank-wall">
+                  <div class="tank-rib tank-rib-top"></div>
+                  <div class="tank-rib tank-rib-mid"></div>
+                  <div class="tank-rib tank-rib-bottom"></div>
+                  <div class="tank-shadow"></div>
+                  <div class="water" id="water3"></div>
+                  <div class="water-surface"></div>
+                </div>
+              </div>
+              <div class="tank-cap"></div>
+            </div>
+            <div class="tank-base"></div>
+          </div>
+        </div>
+        <div class="tank-stats">
+          <div><span class="label">Level</span> <span class="value" id="level3">0.0</span> cm</div>
+          <div><span class="label">Volume</span> <span class="value" id="vol3">0</span> L</div>
+          <div><span class="label">Fill</span> <span class="value" id="pct3">0</span>%</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TEMPERATURE & CHART -->
+    <section class="info-grid">
+      <div class="temp-card">
+        <div class="temp-icon"><i class="fas fa-thermometer-half"></i></div>
+        <div>
+          <div class="temp-label">System Temperature</div>
+          <div class="temp-value" id="tempDisplay">0.0 °C</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <h4><i class="fas fa-chart-line"></i> Temperature Trend</h4>
+          <span class="chart-badge">last 100 points</span>
+        </div>
+        <canvas id="tempChart"></canvas>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <span>POLINDRA · Data stored locally (5‑minute interval)</span>
+      <span>Today’s data from 00:00</span>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
