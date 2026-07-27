@@ -1,4 +1,4 @@
-/* ===== CSS VARIABLES (Light / Dark) ===== */
+/* ===== CSS VARIABLES ===== */
 :root {
     --bg: #f2f6fc;
     --card: #ffffff;
@@ -18,6 +18,9 @@
     --accent-light: #e6f0fa;
     --glow: rgba(13, 148, 136, 0.15);
     --rib-color: #1a4a6e;
+    --alert-bg: #fef9e7;
+    --alert-border: #f59e0b;
+    --alert-text: #78350f;
 }
 
 [data-theme="dark"] {
@@ -36,6 +39,9 @@
     --accent-light: #1e293b;
     --glow: rgba(20, 184, 166, 0.20);
     --rib-color: #64748b;
+    --alert-bg: #422006;
+    --alert-border: #d97706;
+    --alert-text: #fbbf24;
 }
 
 /* ===== RESET & GLOBAL ===== */
@@ -67,7 +73,7 @@ body {
     padding: 0.8rem 2rem;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.8rem;
     transition: background var(--transition), box-shadow var(--transition);
     border: 1px solid var(--border);
 }
@@ -157,13 +163,68 @@ body {
     background: var(--border);
 }
 
+/* ===== INTERVAL SELECTOR ===== */
+.interval-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.interval-selector label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.interval-selector select {
+    padding: 0.3rem 0.8rem;
+    border-radius: 30px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border 0.2s;
+    outline: none;
+}
+.interval-selector select:hover {
+    border-color: var(--accent);
+}
+.interval-selector select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--glow);
+}
+
+/* ===== ALERT BANNER (di atas) ===== */
+.alert-banner {
+    background: var(--alert-bg);
+    border-left: 4px solid var(--alert-border);
+    color: var(--alert-text);
+    padding: 0.8rem 1.2rem;
+    border-radius: 12px;
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9rem;
+    box-shadow: var(--shadow);
+    transition: background var(--transition), color var(--transition);
+}
+.alert-banner i {
+    font-size: 1.4rem;
+    color: var(--alert-border);
+    flex-shrink: 0;
+}
+.alert-banner strong {
+    font-weight: 700;
+}
+
 /* ===== STATUS ROW ===== */
 .status-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 1.5rem 2.5rem;
+    gap: 1.2rem 2rem;
     background: var(--card);
-    padding: 0.6rem 2rem;
+    padding: 0.5rem 1.5rem;
     border-radius: 60px;
     box-shadow: var(--shadow);
     margin-bottom: 1.5rem;
@@ -242,7 +303,7 @@ body {
     color: var(--accent);
 }
 
-/* ----- 3D TANK (Realistic CSS) ----- */
+/* ----- 3D TANK ----- */
 .tank-3d-wrapper {
     display: flex;
     justify-content: center;
@@ -282,7 +343,6 @@ body {
     overflow: hidden;
     background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.05) 100%);
 }
-/* Ribs (horizontal reinforcement) */
 .tank-rib {
     position: absolute;
     left: 0;
@@ -332,7 +392,6 @@ body {
     0%, 100% { transform: translateX(-10px) scaleX(1.02); }
     50% { transform: translateX(10px) scaleX(0.98); }
 }
-/* Cap (top lid) */
 .tank-cap {
     position: absolute;
     top: -8px;
@@ -348,7 +407,6 @@ body {
 [data-theme="dark"] .tank-cap {
     background: linear-gradient(180deg, #2a4a6a, #1a3a5a);
 }
-/* Base / Stand */
 .tank-base {
     width: 60%;
     height: 12px;
@@ -362,7 +420,6 @@ body {
     background: linear-gradient(180deg, #4a5a6a, #2a3a4a);
 }
 
-/* ----- Tank Stats ----- */
 .tank-stats {
     display: flex;
     justify-content: space-between;
@@ -461,29 +518,5 @@ canvas { max-height: 180px; width: 100%; }
     .header-actions { justify-content: center; }
     .status-row { flex-direction: column; align-items: center; gap: 0.5rem; border-radius: var(--radius); }
     .tank-3d { width: 120px; height: 160px; }
-}
-/* ===== INTERVAL SELECTOR ===== */
-.interval-selector {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.interval-selector select {
-    padding: 0.3rem 0.8rem;
-    border-radius: 30px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: border 0.2s;
-    outline: none;
-}
-.interval-selector select:hover {
-    border-color: var(--accent);
-}
-.interval-selector select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--glow);
+    .alert-banner { flex-direction: column; text-align: center; }
 }

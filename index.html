@@ -21,15 +21,16 @@
         </div>
       </div>
       <div class="header-actions">
-        <!-- 🔽 DROPDOWN INTERVAL (BARU) -->
+        <!-- INTERVAL SELECTOR -->
         <div class="interval-selector">
-          <label for="intervalSelect" style="font-size:0.8rem; color:var(--text-secondary); font-weight:500;">⏱️ Update:</label>
-          <select id="intervalSelect" style="padding:0.3rem 0.6rem; border-radius:30px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.8rem; cursor:pointer;">
+          <label for="intervalSelect">⏱️ Update</label>
+          <select id="intervalSelect">
             <option value="2000">2 detik</option>
             <option value="5000">5 detik</option>
-            <option value="10000">10 detik</option>
-            <option value="30000">30 detik</option>
-            <option value="60000">1 menit</option>
+            <option value="120000">2 menit</option>
+            <option value="300000" selected>5 menit</option>
+            <option value="1800000">30 menit</option>
+            <option value="3600000">1 jam</option>
           </select>
         </div>
         <button class="btn-icon" id="themeToggle" title="Toggle theme">
@@ -40,15 +41,21 @@
       </div>
     </header>
 
-    <!-- STATUS ROW (tambahkan indikator interval) -->
+    <!-- ⚠️ PERINGATAN (di atas) -->
+    <div class="alert-banner">
+      <i class="fas fa-info-circle"></i>
+      <span><strong>Penting:</strong> Data history tersimpan di <strong>localStorage</strong> browser Anda. Jangan bersihkan cache/penyimpanan situs jika ingin data tetap terjaga. Data juga tersimpan di <strong>Firebase</strong> sebagai cadangan.</span>
+    </div>
+
+    <!-- STATUS ROW -->
     <div class="status-row">
       <div class="status-item"><i class="fas fa-check-circle" style="color:#22c55e;"></i> System Online</div>
       <div class="status-item"><i class="fas fa-clock"></i> Last update: <span id="lastUpdate">--:--:--</span></div>
       <div class="status-item"><i class="fas fa-database"></i> Records today: <span id="recordCount">0</span></div>
-      <div class="status-item"><i class="fas fa-info-circle"></i> Interval: <span id="currentInterval">2</span> detik</div>
+      <div class="status-item"><i class="fas fa-info-circle"></i> Interval: <span id="currentInterval">5</span> menit</div>
     </div>
 
-    <!-- 3 TANKS (sama) -->
+    <!-- 3 TANKS -->
     <section class="tanks-section">
       <div class="tank-card" id="tank1">
         <div class="tank-header">
@@ -159,10 +166,10 @@
       </div>
     </section>
 
-    <!-- FOOTER dengan Peringatan (BARU) -->
+    <!-- FOOTER (tanpa peringatan, sudah di atas) -->
     <footer class="footer">
-      <span>⚠️ <strong>Peringatan:</strong> Data history tersimpan di localStorage browser. Jangan bersihkan cache jika ingin data tetap terjaga.</span>
-      <span>☁️ Data juga tersimpan di Firebase sebagai cadangan.</span>
+      <span>POLINDRA · Data stored locally (5‑minute interval)</span>
+      <span>Today’s data from 00:00</span>
     </footer>
   </div>
 
