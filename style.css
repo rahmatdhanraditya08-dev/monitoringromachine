@@ -462,3 +462,28 @@ canvas { max-height: 180px; width: 100%; }
     .status-row { flex-direction: column; align-items: center; gap: 0.5rem; border-radius: var(--radius); }
     .tank-3d { width: 120px; height: 160px; }
 }
+/* ===== INTERVAL SELECTOR ===== */
+.interval-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.interval-selector select {
+    padding: 0.3rem 0.8rem;
+    border-radius: 30px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border 0.2s;
+    outline: none;
+}
+.interval-selector select:hover {
+    border-color: var(--accent);
+}
+.interval-selector select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--glow);
+}

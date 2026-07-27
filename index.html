@@ -21,6 +21,17 @@
         </div>
       </div>
       <div class="header-actions">
+        <!-- 🔽 DROPDOWN INTERVAL (BARU) -->
+        <div class="interval-selector">
+          <label for="intervalSelect" style="font-size:0.8rem; color:var(--text-secondary); font-weight:500;">⏱️ Update:</label>
+          <select id="intervalSelect" style="padding:0.3rem 0.6rem; border-radius:30px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:0.8rem; cursor:pointer;">
+            <option value="2000">2 detik</option>
+            <option value="5000">5 detik</option>
+            <option value="10000">10 detik</option>
+            <option value="30000">30 detik</option>
+            <option value="60000">1 menit</option>
+          </select>
+        </div>
         <button class="btn-icon" id="themeToggle" title="Toggle theme">
           <i class="fas fa-moon"></i>
         </button>
@@ -29,14 +40,15 @@
       </div>
     </header>
 
-    <!-- STATUS ROW -->
+    <!-- STATUS ROW (tambahkan indikator interval) -->
     <div class="status-row">
       <div class="status-item"><i class="fas fa-check-circle" style="color:#22c55e;"></i> System Online</div>
       <div class="status-item"><i class="fas fa-clock"></i> Last update: <span id="lastUpdate">--:--:--</span></div>
       <div class="status-item"><i class="fas fa-database"></i> Records today: <span id="recordCount">0</span></div>
+      <div class="status-item"><i class="fas fa-info-circle"></i> Interval: <span id="currentInterval">2</span> detik</div>
     </div>
 
-    <!-- 3 TANKS (Realistic 3D CSS) -->
+    <!-- 3 TANKS (sama) -->
     <section class="tanks-section">
       <div class="tank-card" id="tank1">
         <div class="tank-header">
@@ -147,10 +159,10 @@
       </div>
     </section>
 
-    <!-- FOOTER -->
+    <!-- FOOTER dengan Peringatan (BARU) -->
     <footer class="footer">
-      <span>POLINDRA · Data stored locally (5‑minute interval)</span>
-      <span>Today’s data from 00:00</span>
+      <span>⚠️ <strong>Peringatan:</strong> Data history tersimpan di localStorage browser. Jangan bersihkan cache jika ingin data tetap terjaga.</span>
+      <span>☁️ Data juga tersimpan di Firebase sebagai cadangan.</span>
     </footer>
   </div>
 
