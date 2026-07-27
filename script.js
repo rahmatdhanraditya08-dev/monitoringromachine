@@ -22,19 +22,19 @@ const TANKS = [
 ];
 
 // ============================================================
-// DATA STORAGE (localStorage)
+// DATA STORAGE
 // ============================================================
 const STORAGE_KEY = 'ro_history';
 const MAX_POINTS = 8640;
-const HISTORY_INTERVAL = 300000; // 5 menit
+const HISTORY_INTERVAL = 300000; // 5 menit (tetap untuk history)
 
 let history = [];
 let chart = null;
 let currentData = { sensor1: 0, sensor2: 0, sensor3: 0, suhu: 0 };
 let lastSaveTime = 0;
 
-// ---------- Interval ----------
-let updateInterval = 2000;
+// ---------- Interval (default 5 menit) ----------
+let updateInterval = 300000;
 let intervalId = null;
 
 // ---------- Load / Save ----------
@@ -62,7 +62,7 @@ function saveHistory() {
     }
 }
 
-// ---------- Add point ----------
+// ---------- Add point (only if 5 minutes passed) ----------
 function addDataPoint(s1, s2, s3, temp) {
     const now = Date.now();
     if (now - lastSaveTime < HISTORY_INTERVAL) return;
@@ -79,6 +79,10 @@ function addDataPoint(s1, s2, s3, temp) {
 
 // ---------- Seed dummy ----------
 function seedDummyData() {
+    if (history.length > 0) {
+        console.log('History already has data, skipping seed.');
+        return;
+    }
     console.log('🌱 Seeding dummy data...');
     const now = Date.now();
     const start = new Date();
@@ -233,8 +237,17 @@ function toggleTheme() {
 function startAutoUpdate() {
     if (intervalId) clearInterval(intervalId);
     intervalId = setInterval(fetchFirebaseData, updateInterval);
-    document.getElementById('currentInterval').innerText = updateInterval / 1000;
-    console.log(`🔄 Auto-update set to ${updateInterval/1000} detik`);
+    // Tampilkan interval dalam menit/detik
+    let display = '';
+    if (updateInterval >= 60000) {
+        display = (updateInterval / 60000) + ' menit';
+    } else if (updateInterval >= 1000) {
+        display = (updateInterval / 1000) + ' detik';
+    } else {
+        display = updateInterval + ' ms';
+    }
+    document.getElementById('currentInterval').innerText = display;
+    console.log(`🔄 Auto-update set to ${display}`);
 }
 
 // ============================================================
@@ -256,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // First fetch
     fetchFirebaseData();
 
-    // Set default interval from dropdown
+    // Set default interval from dropdown (default 5 menit)
     const select = document.getElementById('intervalSelect');
     updateInterval = parseInt(select.value);
     startAutoUpdate();
@@ -273,7 +286,13 @@ document.addEventListener('DOMContentLoaded', function() {
     select.addEventListener('change', function() {
         updateInterval = parseInt(this.value);
         startAutoUpdate();
-        alert(`Interval update diubah menjadi ${updateInterval/1000} detik.`);
+        let display = '';
+        if (updateInterval >= 60000) {
+            display = (updateInterval / 60000) + ' menit';
+        } else {
+            display = (updateInterval / 1000) + ' detik';
+        }
+        alert(`Interval update diubah menjadi ${display}.`);
     });
 
     // Double-click title to seed dummy
