@@ -26,14 +26,14 @@ const TANKS = [
 // ============================================================
 const STORAGE_KEY = 'ro_history';
 const MAX_POINTS = 8640;
-const HISTORY_INTERVAL = 300000; // 5 menit (tetap untuk history)
+const HISTORY_INTERVAL = 300000; // 5 menit
 
 let history = [];
 let chart = null;
 let currentData = { sensor1: 0, sensor2: 0, sensor3: 0, suhu: 0 };
 let lastSaveTime = 0;
 
-// ---------- Interval (default 5 menit) ----------
+// ---------- Interval ----------
 let updateInterval = 300000;
 let intervalId = null;
 
@@ -62,7 +62,7 @@ function saveHistory() {
     }
 }
 
-// ---------- Add point (only if 5 minutes passed) ----------
+// ---------- Add point ----------
 function addDataPoint(s1, s2, s3, temp) {
     const now = Date.now();
     if (now - lastSaveTime < HISTORY_INTERVAL) return;
@@ -193,7 +193,7 @@ function updateChart() {
 }
 
 // ============================================================
-// EXPORT EXCEL
+// EXPORT EXCEL (LENGKAP)
 // ============================================================
 function exportExcel() {
     console.log('📤 Export Excel called. History length:', history.length);
@@ -208,9 +208,34 @@ function exportExcel() {
         return;
     }
 
-    const rows = [['Timestamp', 'Sensor1 (cm)', 'Sensor2 (cm)', 'Sensor3 (cm)', 'Temperature (°C)']];
+    // Header dengan semua parameter
+    const headers = [
+        'Timestamp',
+        'T1 Jarak (cm)', 'T1 Level (cm)', 'T1 Volume (L)', 'T1 %',
+        'T2 Jarak (cm)', 'T2 Level (cm)', 'T2 Volume (L)', 'T2 %',
+        'T3 Jarak (cm)', 'T3 Level (cm)', 'T3 Volume (L)', 'T3 %',
+        'Temperature (°C)'
+    ];
+
+    const rows = [headers];
+
     dayData.forEach(p => {
-        rows.push([new Date(p.timestamp).toLocaleString(), p.s1, p.s2, p.s3, p.suhu]);
+        const row = [new Date(p.timestamp).toLocaleString()];
+        const jarak = [p.s1, p.s2, p.s3];
+        for (let i = 0; i < 3; i++) {
+            const dist = jarak[i] || 0;
+            const level = Math.max(0, TANKS[i].height - dist);
+            const pct = (level / TANKS[i].height) * 100;
+            const vol = (level / TANKS[i].height) * TANKS[i].capacity;
+            row.push(
+                dist.toFixed(1),
+                level.toFixed(1),
+                vol.toFixed(1),
+                pct.toFixed(1)
+            );
+        }
+        row.push(p.suhu.toFixed(1));
+        rows.push(row);
     });
 
     const wb = XLSX.utils.book_new();
@@ -237,7 +262,6 @@ function toggleTheme() {
 function startAutoUpdate() {
     if (intervalId) clearInterval(intervalId);
     intervalId = setInterval(fetchFirebaseData, updateInterval);
-    // Tampilkan interval dalam menit/detik
     let display = '';
     if (updateInterval >= 60000) {
         display = (updateInterval / 60000) + ' menit';
@@ -269,10 +293,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // First fetch
     fetchFirebaseData();
 
-    // Set default interval from dropdown (default 5 menit)
+    // Set default interval from dropdown
     const select = document.getElementById('intervalSelect');
-    updateInterval = parseInt(select.value);
-    startAutoUpdate();
+    if (select) {
+        updateInterval = parseInt(select.value) || 300000;
+        startAutoUpdate();
+        // Event listener
+        select.addEventListener('change', function() {
+            updateInterval = parseInt(this.value);
+            startAutoUpdate();
+            let display = '';
+            if (updateInterval >= 60000) {
+                display = (updateInterval / 60000) + ' menit';
+            } else {
+                display = (updateInterval / 1000) + ' detik';
+            }
+            alert(`Interval update diubah menjadi ${display}.`);
+        });
+    } else {
+        // fallback jika tidak ada dropdown (misal di GitHub Pages)
+        updateInterval = 300000;
+        startAutoUpdate();
+    }
 
     // Event listeners
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
@@ -280,19 +322,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('refreshBtn').addEventListener('click', function() {
         console.log('🔄 Manual refresh triggered.');
         fetchFirebaseData();
-    });
-
-    // Interval change
-    select.addEventListener('change', function() {
-        updateInterval = parseInt(this.value);
-        startAutoUpdate();
-        let display = '';
-        if (updateInterval >= 60000) {
-            display = (updateInterval / 60000) + ' menit';
-        } else {
-            display = (updateInterval / 1000) + ' detik';
-        }
-        alert(`Interval update diubah menjadi ${display}.`);
     });
 
     // Double-click title to seed dummy
