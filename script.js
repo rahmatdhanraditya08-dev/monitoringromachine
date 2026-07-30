@@ -13,16 +13,16 @@ const firebaseConfig = {
 };
 
 // ============================================================
-// KONFIGURASI TANGKI
+// KONFIGURASI TANGKI (sesuai ukuran sebenarnya)
 // ============================================================
 const TANKS = [
-    { id: 0, capacity: 3300, height: 200 },
-    { id: 1, capacity: 3300, height: 200 },
-    { id: 2, capacity: 1100, height: 150 }
+    { id: 0, capacity: 3300, height: 210 },  // Main Tank 1
+    { id: 1, capacity: 3300, height: 210 },  // Main Tank 2
+    { id: 2, capacity: 1100, height: 110 }   // Primary Tank (Toren 3)
 ];
 
 // ============================================================
-// DATA STORAGE
+// DATA STORAGE (localStorage) – update per 5 menit
 // ============================================================
 const STORAGE_KEY = 'ro_history';
 const MAX_POINTS = 8640;
@@ -141,9 +141,10 @@ function fetchFirebaseData() {
 function updateUI() {
     const s = [currentData.sensor1, currentData.sensor2, currentData.sensor3];
     s.forEach((dist, i) => {
-        const level = Math.max(0, TANKS[i].height - dist);
-        const pct = Math.min(100, (level / TANKS[i].height) * 100);
-        const vol = (level / TANKS[i].height) * TANKS[i].capacity;
+        const maxH = TANKS[i].height;
+        const level = Math.max(0, maxH - dist);
+        const pct = Math.min(100, (level / maxH) * 100);
+        const vol = (level / maxH) * TANKS[i].capacity;
         const id = i + 1;
         document.getElementById(`level${id}`).innerText = level.toFixed(1);
         document.getElementById(`vol${id}`).innerText = Math.round(vol);
@@ -208,7 +209,6 @@ function exportExcel() {
         return;
     }
 
-    // Header dengan semua parameter
     const headers = [
         'Timestamp',
         'T1 Jarak (cm)', 'T1 Level (cm)', 'T1 Volume (L)', 'T1 %',
@@ -224,9 +224,10 @@ function exportExcel() {
         const jarak = [p.s1, p.s2, p.s3];
         for (let i = 0; i < 3; i++) {
             const dist = jarak[i] || 0;
-            const level = Math.max(0, TANKS[i].height - dist);
-            const pct = (level / TANKS[i].height) * 100;
-            const vol = (level / TANKS[i].height) * TANKS[i].capacity;
+            const maxH = TANKS[i].height;
+            const level = Math.max(0, maxH - dist);
+            const pct = (level / maxH) * 100;
+            const vol = (level / maxH) * TANKS[i].capacity;
             row.push(
                 dist.toFixed(1),
                 level.toFixed(1),
