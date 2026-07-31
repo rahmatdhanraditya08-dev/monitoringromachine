@@ -105,34 +105,44 @@ function seedDummyData() {
 }
 
 // ============================================================
-// FETCH DATA FROM FIREBASE
+// FETCH DATA FROM FIREBASE (DENGAN CACHE CONTROL)
 // ============================================================
 function fetchFirebaseData() {
-    const url = firebaseConfig.databaseURL + '/sensor/data.json';
+    // Tambahkan cache buster agar browser tidak pakai cache
+    const cacheBuster = Date.now();
+    const url = firebaseConfig.databaseURL + '/sensor/data.json?_t=' + cacheBuster;
     console.log('🔄 Fetching from Firebase at', new Date().toLocaleTimeString());
-    fetch(url)
-        .then(res => {
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            return res.json();
-        })
-        .then(data => {
-            if (data) {
-                currentData.sensor1 = data.sensor1 || 0;
-                currentData.sensor2 = data.sensor2 || 0;
-                currentData.sensor3 = data.sensor3 || 0;
-                currentData.suhu = data.suhu || 0;
-                updateUI();
-                addDataPoint(currentData.sensor1, currentData.sensor2, currentData.sensor3, currentData.suhu);
-                document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
-                console.log('✅ Firebase data updated:', currentData);
-            } else {
-                console.warn('⚠️ Firebase returned empty data.');
-            }
-        })
-        .catch(err => {
-            console.warn('⚠️ Firebase error:', err.message);
-            document.getElementById('lastUpdate').innerText = '⚠️ Offline';
-        });
+    
+    fetch(url, {
+        cache: 'no-cache',   // Minta browser tidak pakai cache
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    })
+    .then(data => {
+        if (data) {
+            currentData.sensor1 = data.sensor1 || 0;
+            currentData.sensor2 = data.sensor2 || 0;
+            currentData.sensor3 = data.sensor3 || 0;
+            currentData.suhu = data.suhu || 0;
+            updateUI();
+            addDataPoint(currentData.sensor1, currentData.sensor2, currentData.sensor3, currentData.suhu);
+            document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
+            console.log('✅ Firebase data updated:', currentData);
+        } else {
+            console.warn('⚠️ Firebase returned empty data.');
+        }
+    })
+    .catch(err => {
+        console.warn('⚠️ Firebase error:', err.message);
+        document.getElementById('lastUpdate').innerText = '⚠️ Offline';
+    });
 }
 
 // ============================================================
@@ -258,10 +268,9 @@ function toggleTheme() {
 }
 
 // ============================================================
-// INTERVAL CONTROL (FIXED)
+// INTERVAL CONTROL
 // ============================================================
 function startAutoUpdate() {
-    // Hentikan interval lama jika ada
     if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
@@ -270,7 +279,7 @@ function startAutoUpdate() {
     
     console.log(`🔄 Starting auto-update with interval: ${updateInterval/1000} detik`);
     
-    // Jalankan fetch pertama kali segera
+    // Fetch pertama segera
     fetchFirebaseData();
     
     // Set interval baru
@@ -279,7 +288,6 @@ function startAutoUpdate() {
         fetchFirebaseData();
     }, updateInterval);
     
-    // Tampilkan interval di UI
     let display = '';
     if (updateInterval >= 60000) {
         display = (updateInterval / 60000) + ' menit';
@@ -309,18 +317,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== SETUP INTERVAL DARI DROPDOWN =====
     const select = document.getElementById('intervalSelect');
     if (select) {
-        // Set default dari dropdown
         updateInterval = parseInt(select.value) || 300000;
         console.log(`📌 Default interval from dropdown: ${updateInterval/1000} detik`);
-        
-        // Start auto-update
         startAutoUpdate();
         
-        // Event listener perubahan dropdown
         select.addEventListener('change', function() {
             updateInterval = parseInt(this.value);
             console.log(`📌 Interval changed to: ${updateInterval/1000} detik`);
-            startAutoUpdate(); // restart dengan interval baru
+            startAutoUpdate();
             let display = '';
             if (updateInterval >= 60000) {
                 display = (updateInterval / 60000) + ' menit';
@@ -330,7 +334,6 @@ document.addEventListener('DOMContentLoaded', function() {
             alert(`Interval update diubah menjadi ${display}.`);
         });
     } else {
-        // Fallback jika tidak ada dropdown
         console.warn('⚠️ Dropdown interval tidak ditemukan, pakai default 5 menit');
         updateInterval = 300000;
         startAutoUpdate();
