@@ -22,7 +22,7 @@ const TANKS = [
 ];
 
 // ============================================================
-// DATA STORAGE (localStorage) – update per 5 menit
+// DATA STORAGE
 // ============================================================
 const STORAGE_KEY = 'ro_history';
 const MAX_POINTS = 8640;
@@ -34,7 +34,7 @@ let currentData = { sensor1: 0, sensor2: 0, sensor3: 0, suhu: 0 };
 let lastSaveTime = 0;
 
 // ---------- Interval ----------
-let updateInterval = 300000;
+let updateInterval = 300000; // default 5 menit
 let intervalId = null;
 
 // ---------- Load / Save ----------
@@ -109,7 +109,7 @@ function seedDummyData() {
 // ============================================================
 function fetchFirebaseData() {
     const url = firebaseConfig.databaseURL + '/sensor/data.json';
-    console.log('🔄 Fetching from Firebase:', url);
+    console.log('🔄 Fetching from Firebase at', new Date().toLocaleTimeString());
     fetch(url)
         .then(res => {
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -130,7 +130,7 @@ function fetchFirebaseData() {
             }
         })
         .catch(err => {
-            console.warn('⚠️ Firebase real-time error:', err.message);
+            console.warn('⚠️ Firebase error:', err.message);
             document.getElementById('lastUpdate').innerText = '⚠️ Offline';
         });
 }
@@ -258,21 +258,36 @@ function toggleTheme() {
 }
 
 // ============================================================
-// INTERVAL CONTROL
+// INTERVAL CONTROL (FIXED)
 // ============================================================
 function startAutoUpdate() {
-    if (intervalId) clearInterval(intervalId);
-    intervalId = setInterval(fetchFirebaseData, updateInterval);
+    // Hentikan interval lama jika ada
+    if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+        console.log('🛑 Old interval stopped.');
+    }
+    
+    console.log(`🔄 Starting auto-update with interval: ${updateInterval/1000} detik`);
+    
+    // Jalankan fetch pertama kali segera
+    fetchFirebaseData();
+    
+    // Set interval baru
+    intervalId = setInterval(function() {
+        console.log(`⏰ Auto-update trigger at ${new Date().toLocaleTimeString()}`);
+        fetchFirebaseData();
+    }, updateInterval);
+    
+    // Tampilkan interval di UI
     let display = '';
     if (updateInterval >= 60000) {
         display = (updateInterval / 60000) + ' menit';
-    } else if (updateInterval >= 1000) {
-        display = (updateInterval / 1000) + ' detik';
     } else {
-        display = updateInterval + ' ms';
+        display = (updateInterval / 1000) + ' detik';
     }
     document.getElementById('currentInterval').innerText = display;
-    console.log(`🔄 Auto-update set to ${display}`);
+    console.log(`✅ Auto-update running: every ${display}`);
 }
 
 // ============================================================
@@ -291,18 +306,21 @@ document.addEventListener('DOMContentLoaded', function() {
     updateChart();
     updateRecordCount();
 
-    // First fetch
-    fetchFirebaseData();
-
-    // Set default interval from dropdown
+    // ===== SETUP INTERVAL DARI DROPDOWN =====
     const select = document.getElementById('intervalSelect');
     if (select) {
+        // Set default dari dropdown
         updateInterval = parseInt(select.value) || 300000;
+        console.log(`📌 Default interval from dropdown: ${updateInterval/1000} detik`);
+        
+        // Start auto-update
         startAutoUpdate();
-        // Event listener
+        
+        // Event listener perubahan dropdown
         select.addEventListener('change', function() {
             updateInterval = parseInt(this.value);
-            startAutoUpdate();
+            console.log(`📌 Interval changed to: ${updateInterval/1000} detik`);
+            startAutoUpdate(); // restart dengan interval baru
             let display = '';
             if (updateInterval >= 60000) {
                 display = (updateInterval / 60000) + ' menit';
@@ -312,12 +330,13 @@ document.addEventListener('DOMContentLoaded', function() {
             alert(`Interval update diubah menjadi ${display}.`);
         });
     } else {
-        // fallback jika tidak ada dropdown (misal di GitHub Pages)
+        // Fallback jika tidak ada dropdown
+        console.warn('⚠️ Dropdown interval tidak ditemukan, pakai default 5 menit');
         updateInterval = 300000;
         startAutoUpdate();
     }
 
-    // Event listeners
+    // Event listeners tombol
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
     document.getElementById('exportExcel').addEventListener('click', exportExcel);
     document.getElementById('refreshBtn').addEventListener('click', function() {
@@ -343,4 +362,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     console.log(`✅ Dashboard ready. History: ${history.length} points.`);
+    console.log(`✅ Auto-update running every ${updateInterval/1000} detik.`);
 });
