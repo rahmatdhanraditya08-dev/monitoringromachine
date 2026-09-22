@@ -11,24 +11,22 @@
 </head>
 <body>
   <div class="app">
-    <!-- HEADER -->
     <header class="header">
       <div class="brand">
         <div class="logo"><i class="fas fa-tint"></i></div>
         <div>
           <h1>Reverse Osmosis Machine</h1>
-          <span class="subtitle">Politeknik Negeri Indramayu · Real‑time Monitoring</span>
+          <span class="subtitle">Politeknik Negeri Indramayu · Real-time Monitoring</span>
         </div>
       </div>
       <div class="header-actions">
-        <!-- INTERVAL SELECTOR -->
         <div class="interval-selector">
           <label for="intervalSelect">⏱️ Update</label>
           <select id="intervalSelect">
-            <option value="2000">2 detik</option>
+            <option value="2000" selected>2 detik</option>
             <option value="5000">5 detik</option>
             <option value="120000">2 menit</option>
-            <option value="300000" selected>5 menit</option>
+            <option value="300000">5 menit</option>
             <option value="1800000">30 menit</option>
             <option value="3600000">1 jam</option>
           </select>
@@ -36,23 +34,40 @@
         <button class="btn-icon" id="themeToggle" title="Toggle theme">
           <i class="fas fa-moon"></i>
         </button>
+        <button class="btn btn-outline" id="aboutProjectBtn"><i class="fas fa-circle-info"></i> Tentang proyek</button>
         <button class="btn btn-outline" id="exportExcel"><i class="fas fa-file-excel"></i> Excel</button>
         <button class="btn btn-primary" id="refreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
       </div>
     </header>
 
-    <!-- ⚠️ PERINGATAN (di atas) -->
     <div class="alert-banner">
       <i class="fas fa-info-circle"></i>
-      <span><strong>Penting:</strong> Data history tersimpan di <strong>localStorage</strong> browser Anda. Jangan bersihkan cache/penyimpanan situs jika ingin data tetap terjaga. Data juga tersimpan di <strong>Firebase</strong> sebagai cadangan.</span>
+      <span><strong>Penting:</strong> Tampilan sensor update langsung saat data masuk, sedangkan log historis disimpan otomatis per 5 menit ke <strong>localStorage</strong> browser Anda. Data juga tersimpan di <strong>Firebase</strong> sebagai cadangan.</span>
     </div>
 
-    <!-- STATUS ROW -->
     <div class="status-row">
       <div class="status-item"><i class="fas fa-check-circle" style="color:#22c55e;"></i> System Online</div>
       <div class="status-item"><i class="fas fa-clock"></i> Last update: <span id="lastUpdate">--:--:--</span></div>
       <div class="status-item"><i class="fas fa-database"></i> Records today: <span id="recordCount">0</span></div>
-      <div class="status-item"><i class="fas fa-info-circle"></i> Interval: <span id="currentInterval">5</span> menit</div>
+      <div class="status-item"><i class="fas fa-info-circle"></i> Interval: <span id="currentInterval">2</span> detik</div>
+    </div>
+
+    <div class="live-status-panel">
+      <div class="status-pill status-live">
+        <span class="status-dot"></span>
+        <span>Realtime:</span>
+        <strong id="realtimeStatus">Live</strong>
+      </div>
+      <div class="status-pill status-log">
+        <span class="status-dot"></span>
+        <span>Log 5 menit:</span>
+        <strong id="logStatus">Menunggu data</strong>
+      </div>
+      <div class="status-pill status-download">
+        <span class="status-dot"></span>
+        <span>Excel:</span>
+        <strong id="excelStatus">Siap</strong>
+      </div>
     </div>
 
     <!-- 3 TANKS -->
@@ -148,7 +163,6 @@
       </div>
     </section>
 
-    <!-- TEMPERATURE & CHART -->
     <section class="info-grid">
       <div class="temp-card">
         <div class="temp-icon"><i class="fas fa-thermometer-half"></i></div>
@@ -166,10 +180,89 @@
       </div>
     </section>
 
-    <!-- FOOTER (tanpa peringatan, sudah di atas) -->
+    <section class="log-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Archive</p>
+          <h3>Log data harian</h3>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-outline" id="downloadTodayBtn"><i class="fas fa-download"></i> Download hari ini</button>
+          <button class="btn btn-primary" id="downloadAllBtn"><i class="fas fa-file-excel"></i> Download semua</button>
+        </div>
+      </div>
+      <div class="log-table-wrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Jumlah titik</th>
+              <th>Mulai</th>
+              <th>Selesai</th>
+              <th>Rata-rata suhu</th>
+              <th>Download</th>
+            </tr>
+          </thead>
+          <tbody id="dailyLogTableBody">
+            <tr>
+              <td colspan="6" class="empty-state">Belum ada log harian.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="credit-panel">
+      <div class="credit-badge">
+        <i class="fas fa-users"></i>
+        <span>Tim Pembuat</span>
+      </div>
+
+      <div class="credit-content">
+        <div class="credit-item">
+          <span class="credit-label">Dosen Pembimbing</span>
+          <strong>Fauzan Amri</strong>
+        </div>
+
+        <div class="credit-item">
+          <span class="credit-label">Anggota 1</span>
+          <strong>Raditya Rahmat Dhani</strong>
+        </div>
+
+        <div class="credit-item">
+          <span class="credit-label">Anggota 2</span>
+          <strong>Muhammad Iqbal Alfarizi</strong>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal" id="aboutProjectModal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-about></div>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="aboutProjectTitle">
+        <button class="modal-close" id="closeAboutProject" title="Tutup" aria-label="Tutup informasi proyek">
+          <i class="fas fa-xmark"></i>
+        </button>
+        <div class="modal-icon"><i class="fas fa-water"></i></div>
+        <p class="eyebrow">POLINDRA · Project overview</p>
+        <h2 id="aboutProjectTitle">RO Machine Monitoring</h2>
+        <p class="modal-description">Dashboard ini memantau level, volume, dan suhu pada tiga water tank secara realtime. Data historis dirangkum setiap lima menit agar mudah ditinjau dan diekspor ke Excel.</p>
+        <div class="modal-facts">
+          <div><i class="fas fa-bolt"></i><span>Realtime sensor update</span></div>
+          <div><i class="fas fa-chart-line"></i><span>Rata-rata suhu LM35</span></div>
+          <div><i class="fas fa-file-excel"></i><span>Arsip log siap ekspor</span></div>
+        </div>
+        <div class="modal-team">
+          <span class="credit-label">Dibuat oleh tim</span>
+          <strong>Raditya Rahmat Dhani · Muhammad Iqbal Alfarizi</strong>
+          <small>Dosen Pembimbing: Fauzan Amri</small>
+        </div>
+      </section>
+    </div>
+
     <footer class="footer">
-      <span>POLINDRA · Data stored locally (5‑minute interval)</span>
-      <span>Today’s data from 00:00</span>
+      <span>POLINDRA · Realtime + log 5 menit</span>
+      <span>Data hari ini dari 07:00 sampai 17:00</span>
+      <span class="footer-credit">© Tim Pembuat</span>
     </footer>
   </div>
 

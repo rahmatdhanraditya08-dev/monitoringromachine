@@ -1,6 +1,3 @@
-// ============================================================
-// FIREBASE CONFIG
-// ============================================================
 const firebaseConfig = {
     apiKey: "AIzaSyCmS-FbsELKP1-uGm_ACvxauaW121useqM",
     authDomain: "monitoringromachine.firebaseapp.com",
@@ -12,210 +9,314 @@ const firebaseConfig = {
     measurementId: "G-8BYRDXEB4W"
 };
 
-// ============================================================
-// KONFIGURASI TANGKI (sesuai ukuran sebenarnya)
-// ============================================================
 const TANKS = [
-    { id: 0, capacity: 3300, height: 210 },  // Main Tank 1
-    { id: 1, capacity: 3300, height: 210 },  // Main Tank 2
-    { id: 2, capacity: 1100, height: 110 }   // Primary Tank (Toren 3)
+    { id: 0, capacity: 3300, height: 210 },
+    { id: 1, capacity: 3300, height: 210 },
+    { id: 2, capacity: 1100, height: 110 }
 ];
 
-// ============================================================
-// DATA STORAGE
-// ============================================================
-const STORAGE_KEY = 'ro_history';
-const MAX_POINTS = 8640;
-const HISTORY_INTERVAL = 300000; // 5 menit
+const STORAGE_KEY = 'ro_history_v2';
+const DAILY_LOG_KEY = 'ro_daily_logs_v2';
+const MAX_POINTS = 10000;
+const TEMP_WINDOW_SIZE = 5;
+const HISTORY_INTERVAL = 300000;
+const WORK_START_HOUR = 7;
+const WORK_END_HOUR = 17;
 
 let history = [];
+let dailyLogs = [];
 let chart = null;
-let currentData = { sensor1: 0, sensor2: 0, sensor3: 0, suhu: 0 };
+let currentData = { sensor1: 0, sensor2: 0, sensor3: 0, suhu: 0, suhuRaw: 0 };
+let temperatureSamples = [];
 let lastSaveTime = 0;
-
-// ---------- Interval ----------
-let updateInterval = 300000; // default 5 menit
+let updateInterval = 2000;
 let intervalId = null;
+let lastDataTimestamp = 0;
 
-// ---------- Load / Save ----------
+function toNumber(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+}
+
+function getDateKey(date = new Date()) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function average(values) {
+    if (!values.length) return 0;
+    const total = values.reduce((sum, item) => sum + Number(item || 0), 0);
+    return total / values.length;
+}
+
 function loadHistory() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-            history = JSON.parse(raw);
-            console.log(`✅ History loaded: ${history.length} points`);
-        } else {
-            console.log('ℹ️ No history found in localStorage.');
+        const rawHistory = localStorage.getItem(STORAGE_KEY);
+        if (rawHistory) {
+            history = JSON.parse(rawHistory);
         }
-    } catch (e) {
-        console.error('❌ Load history error:', e);
+        const rawDaily = localStorage.getItem(DAILY_LOG_KEY);
+        if (rawDaily) {
+            dailyLogs = JSON.parse(rawDaily);
+        }
+        console.log(`✅ History loaded: ${history.length} points, ${dailyLogs.length} daily logs`);
+    } catch (error) {
+        console.error('❌ Load storage error:', error);
         history = [];
+        dailyLogs = [];
     }
 }
+
 function saveHistory() {
     try {
         if (history.length > MAX_POINTS) history = history.slice(-MAX_POINTS);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-        console.log(`💾 History saved: ${history.length} points`);
-    } catch (e) {
-        console.error('❌ Save history error:', e);
+    } catch (error) {
+        console.error('❌ Save history error:', error);
     }
 }
 
-// ---------- Add point ----------
-function addDataPoint(s1, s2, s3, temp) {
-    const now = Date.now();
-    if (now - lastSaveTime < HISTORY_INTERVAL) return;
-    lastSaveTime = now;
-    const d = new Date(now);
-    const startDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
-    if (now < startDay.getTime()) return;
-    history.push({ timestamp: now, s1, s2, s3, suhu: temp });
-    saveHistory();
-    updateRecordCount();
-    updateChart();
-    console.log(`📊 Data point added at ${new Date(now).toLocaleString()}`);
-}
-
-// ---------- Seed dummy ----------
-function seedDummyData() {
-    if (history.length > 0) {
-        console.log('History already has data, skipping seed.');
-        return;
+function saveDailyLogs() {
+    try {
+        localStorage.setItem(DAILY_LOG_KEY, JSON.stringify(dailyLogs));
+    } catch (error) {
+        console.error('❌ Save daily logs error:', error);
     }
-    console.log('🌱 Seeding dummy data...');
-    const now = Date.now();
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    let ts = start.getTime();
-    let count = 0;
-    while (ts < now) {
-        const s1 = 80 + Math.random() * 40;
-        const s2 = 70 + Math.random() * 50;
-        const s3 = 50 + Math.random() * 30;
-        const temp = 25 + Math.random() * 8;
-        history.push({ timestamp: ts, s1, s2, s3, suhu: temp });
-        ts += HISTORY_INTERVAL;
-        count++;
-    }
-    saveHistory();
-    updateRecordCount();
-    updateChart();
-    console.log(`✅ Seeded ${count} dummy points.`);
-}
-
-// ============================================================
-// FETCH DATA FROM FIREBASE (DENGAN CACHE CONTROL)
-// ============================================================
-function fetchFirebaseData() {
-    // Tambahkan cache buster agar browser tidak pakai cache
-    const cacheBuster = Date.now();
-    const url = firebaseConfig.databaseURL + '/sensor/data.json?_t=' + cacheBuster;
-    console.log('🔄 Fetching from Firebase at', new Date().toLocaleTimeString());
-    
-    fetch(url, {
-        cache: 'no-cache',   // Minta browser tidak pakai cache
-        headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-        }
-    })
-    .then(res => {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-    })
-    .then(data => {
-        if (data) {
-            currentData.sensor1 = data.sensor1 || 0;
-            currentData.sensor2 = data.sensor2 || 0;
-            currentData.sensor3 = data.sensor3 || 0;
-            currentData.suhu = data.suhu || 0;
-            updateUI();
-            addDataPoint(currentData.sensor1, currentData.sensor2, currentData.sensor3, currentData.suhu);
-            document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
-            console.log('✅ Firebase data updated:', currentData);
-        } else {
-            console.warn('⚠️ Firebase returned empty data.');
-        }
-    })
-    .catch(err => {
-        console.warn('⚠️ Firebase error:', err.message);
-        document.getElementById('lastUpdate').innerText = '⚠️ Offline';
-    });
-}
-
-// ============================================================
-// UPDATE UI
-// ============================================================
-function updateUI() {
-    const s = [currentData.sensor1, currentData.sensor2, currentData.sensor3];
-    s.forEach((dist, i) => {
-        const maxH = TANKS[i].height;
-        const level = Math.max(0, maxH - dist);
-        const pct = Math.min(100, (level / maxH) * 100);
-        const vol = (level / maxH) * TANKS[i].capacity;
-        const id = i + 1;
-        document.getElementById(`level${id}`).innerText = level.toFixed(1);
-        document.getElementById(`vol${id}`).innerText = Math.round(vol);
-        document.getElementById(`pct${id}`).innerText = Math.round(pct);
-        document.getElementById(`water${id}`).style.height = pct + '%';
-    });
-    const temp = currentData.suhu || 0;
-    document.getElementById('tempDisplay').innerHTML = temp.toFixed(1) + ' °C';
 }
 
 function updateRecordCount() {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-    const count = history.filter(p => p.timestamp >= start.getTime()).length;
+    const count = history.filter((point) => point.timestamp >= start.getTime()).length;
     document.getElementById('recordCount').innerText = count;
-    console.log(`📋 Records today: ${count}`);
 }
 
-// ============================================================
-// CHART
-// ============================================================
+function showToast(title, message) {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<strong>${title}</strong><small>${message}</small>`;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 3200);
+}
+
+function updateStatusIndicators() {
+    const realtimeStatus = document.getElementById('realtimeStatus');
+    const logStatus = document.getElementById('logStatus');
+    const excelStatus = document.getElementById('excelStatus');
+
+    if (!realtimeStatus || !logStatus || !excelStatus) return;
+
+    if (lastDataTimestamp) {
+        const delay = Date.now() - lastDataTimestamp;
+        realtimeStatus.textContent = delay < 15000 ? 'Live' : 'Delay';
+    } else {
+        realtimeStatus.textContent = 'Menunggu';
+    }
+
+    if (dailyLogs.length) {
+        logStatus.textContent = 'Siap unduh';
+        excelStatus.textContent = 'Siap';
+    } else {
+        logStatus.textContent = 'Menunggu data';
+        excelStatus.textContent = 'N/A';
+    }
+}
+
+function updateUI() {
+    const sensors = [currentData.sensor1, currentData.sensor2, currentData.sensor3];
+    sensors.forEach((dist, index) => {
+        const maxHeight = TANKS[index].height;
+        const level = Math.max(0, maxHeight - dist);
+        const percentage = Math.min(100, (level / maxHeight) * 100);
+        const volume = (level / maxHeight) * TANKS[index].capacity;
+        const id = index + 1;
+
+        document.getElementById(`level${id}`).innerText = level.toFixed(1);
+        document.getElementById(`vol${id}`).innerText = Math.round(volume);
+        document.getElementById(`pct${id}`).innerText = Math.round(percentage);
+        document.getElementById(`water${id}`).style.height = `${percentage}%`;
+    });
+
+    const tempValue = currentData.suhu || 0;
+    document.getElementById('tempDisplay').innerHTML = `${tempValue.toFixed(1)} °C`;
+    document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString();
+    updateStatusIndicators();
+}
+
+function updateChart() {
+    if (!chart) return;
+
+    const points = history.slice(-100);
+    chart.data.labels = points.map((point) => new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    chart.data.datasets[0].data = points.map((point) => Number(point.suhu || 0));
+    chart.update();
+}
+
 function initChart() {
     const ctx = document.getElementById('tempChart').getContext('2d');
     chart = new Chart(ctx, {
         type: 'line',
-        data: { labels: [], datasets: [{ label: 'Temperature (°C)', data: [], borderColor: '#e67e22', backgroundColor: 'rgba(230,126,34,0.05)', tension: 0.2, fill: true, pointRadius: 2 }] },
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Temperature (°C)',
+                data: [],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245,158,11,0.08)',
+                tension: 0.28,
+                fill: true,
+                pointRadius: 2,
+                pointHoverRadius: 4
+            }]
+        },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: { legend: { display: false } },
             scales: {
-                y: { min: 0, max: 50, title: { display: true, text: '°C' } },
+                y: { min: 0, max: 60, title: { display: true, text: '°C' } },
                 x: { title: { display: true, text: 'Time' } }
             }
         }
     });
-    console.log('📈 Chart initialized.');
-}
-function updateChart() {
-    if (!chart) return;
-    const points = history.slice(-100);
-    const labels = points.map(p => new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    const data = points.map(p => p.suhu);
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = data;
-    chart.update();
 }
 
-// ============================================================
-// EXPORT EXCEL (LENGKAP)
-// ============================================================
-function exportExcel() {
-    console.log('📤 Export Excel called. History length:', history.length);
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-    const dayData = history.filter(p => p.timestamp >= start.getTime());
-    console.log('📊 Today data points:', dayData.length);
+function addDataPoint(sensor1, sensor2, sensor3, rawTemp) {
+    const now = Date.now();
+    const tempValue = toNumber(rawTemp);
 
-    if (!dayData.length) {
-        const msg = `No data today yet. History total: ${history.length} points.\n\nTry:\n1. Wait 5 minutes for data collection\n2. Click "Refresh Data"\n3. Double-click the title to seed dummy data`;
-        alert(msg);
+    temperatureSamples.push(tempValue);
+    if (temperatureSamples.length > TEMP_WINDOW_SIZE) {
+        temperatureSamples.shift();
+    }
+
+    const avgTemp = average(temperatureSamples);
+    currentData.sensor1 = toNumber(sensor1);
+    currentData.sensor2 = toNumber(sensor2);
+    currentData.sensor3 = toNumber(sensor3);
+    currentData.suhuRaw = tempValue;
+    currentData.suhu = avgTemp;
+
+    updateUI();
+
+    const shouldLogHistory = now - lastSaveTime >= HISTORY_INTERVAL || history.length === 0;
+    if (shouldLogHistory) {
+        lastSaveTime = now;
+        history.push({
+            timestamp: now,
+            s1: currentData.sensor1,
+            s2: currentData.sensor2,
+            s3: currentData.sensor3,
+            suhu: avgTemp,
+            suhuRaw: tempValue
+        });
+        saveHistory();
+        updateRecordCount();
+        updateChart();
+        addDailyLogEntry(currentData.sensor1, currentData.sensor2, currentData.sensor3, avgTemp, now);
+        lastDataTimestamp = now;
+        showToast('Data terbaru masuk', `Terakhir update: ${new Date(now).toLocaleTimeString()}`);
+    }
+}
+
+function addDailyLogEntry(sensor1, sensor2, sensor3, tempValue, timestamp = Date.now()) {
+    const time = new Date(timestamp);
+    const hour = time.getHours();
+
+    if (hour < WORK_START_HOUR || hour >= WORK_END_HOUR) {
+        return;
+    }
+
+    const dateKey = getDateKey(time);
+    const existingDay = dailyLogs.filter((log) => log.dateKey === dateKey);
+    const lastLog = existingDay[existingDay.length - 1];
+
+    if (lastLog && timestamp - lastLog.timestamp < HISTORY_INTERVAL - 1000) {
+        return;
+    }
+
+    dailyLogs.push({
+        id: `${dateKey}-${timestamp}`,
+        dateKey,
+        timestamp,
+        sensor1: toNumber(sensor1),
+        sensor2: toNumber(sensor2),
+        sensor3: toNumber(sensor3),
+        suhu: Number(tempValue || 0)
+    });
+
+    saveDailyLogs();
+    renderDailyLogTable();
+    updateStatusIndicators();
+    showToast('Log 5 menit siap', `Log ${dateKey} tersimpan dan siap diunduh.`);
+}
+
+function getDailySummary(dateKey) {
+    const filters = dailyLogs.filter((log) => log.dateKey === dateKey);
+    if (!filters.length) return null;
+
+    const temps = filters.map((log) => Number(log.suhu || 0));
+    return {
+        dateKey,
+        total: filters.length,
+        avgTemp: average(temps),
+        start: new Date(filters[0].timestamp),
+        end: new Date(filters[filters.length - 1].timestamp)
+    };
+}
+
+function renderDailyLogTable() {
+    const tableBody = document.getElementById('dailyLogTableBody');
+    if (!tableBody) return;
+
+    const uniqueDays = [...new Set(dailyLogs.map((log) => log.dateKey))].sort((a, b) => a.localeCompare(b));
+
+    if (!uniqueDays.length) {
+        tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">Belum ada log harian.</td></tr>';
+        return;
+    }
+
+    const rowsHtml = uniqueDays.map((dateKey) => {
+        const summary = getDailySummary(dateKey);
+        if (!summary) return '';
+
+        return `
+            <tr>
+                <td>${summary.dateKey}</td>
+                <td>${summary.total}</td>
+                <td>${summary.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                <td>${summary.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                <td>${summary.avgTemp.toFixed(1)} °C</td>
+                <td><button class="log-download-btn" data-date="${summary.dateKey}">Download</button></td>
+            </tr>
+        `;
+    }).join('');
+
+    tableBody.innerHTML = rowsHtml;
+    updateStatusIndicators();
+
+    tableBody.querySelectorAll('.log-download-btn').forEach((button) => {
+        button.addEventListener('click', () => exportDailyLog(button.dataset.date));
+    });
+}
+
+function exportDailyLog(dateKey) {
+    const filtered = dailyLogs.filter((log) => log.dateKey === dateKey);
+    if (!filtered.length) {
+        alert('Tidak ada data untuk tanggal tersebut.');
         return;
     }
 
@@ -228,37 +329,148 @@ function exportExcel() {
     ];
 
     const rows = [headers];
+    filtered.forEach((log) => {
+        const row = [new Date(log.timestamp).toLocaleString()];
+        const tankValues = [log.sensor1, log.sensor2, log.sensor3];
 
-    dayData.forEach(p => {
-        const row = [new Date(p.timestamp).toLocaleString()];
-        const jarak = [p.s1, p.s2, p.s3];
-        for (let i = 0; i < 3; i++) {
-            const dist = jarak[i] || 0;
-            const maxH = TANKS[i].height;
-            const level = Math.max(0, maxH - dist);
-            const pct = (level / maxH) * 100;
-            const vol = (level / maxH) * TANKS[i].capacity;
-            row.push(
-                dist.toFixed(1),
-                level.toFixed(1),
-                vol.toFixed(1),
-                pct.toFixed(1)
-            );
-        }
-        row.push(p.suhu.toFixed(1));
+        tankValues.forEach((dist, index) => {
+            const maxHeight = TANKS[index].height;
+            const level = Math.max(0, maxHeight - dist);
+            const pct = (level / maxHeight) * 100;
+            const vol = (level / maxHeight) * TANKS[index].capacity;
+            row.push(dist.toFixed(1), level.toFixed(1), vol.toFixed(1), pct.toFixed(1));
+        });
+
+        row.push(Number(log.suhu || 0).toFixed(1));
         rows.push(row);
     });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'RO Monitoring');
-    XLSX.writeFile(wb, `RO_${today.toISOString().slice(0, 10)}.xlsx`);
-    console.log('✅ Excel exported successfully.');
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, `RO_${dateKey}`);
+    XLSX.writeFile(workbook, `RO_Log_${dateKey}.xlsx`);
 }
 
-// ============================================================
-// THEME TOGGLE
-// ============================================================
+function exportExcel() {
+    const todayKey = getDateKey();
+    const dayData = history.filter((point) => getDateKey(new Date(point.timestamp)) === todayKey);
+
+    if (!dayData.length) {
+        alert('Belum ada data hari ini. Tunggu beberapa menit hingga data muncul.');
+        return;
+    }
+
+    const headers = [
+        'Timestamp',
+        'T1 Jarak (cm)', 'T1 Level (cm)', 'T1 Volume (L)', 'T1 %',
+        'T2 Jarak (cm)', 'T2 Level (cm)', 'T2 Volume (L)', 'T2 %',
+        'T3 Jarak (cm)', 'T3 Level (cm)', 'T3 Volume (L)', 'T3 %',
+        'Temperature (°C)'
+    ];
+
+    const rows = [headers];
+    dayData.forEach((point) => {
+        const row = [new Date(point.timestamp).toLocaleString()];
+        const values = [point.s1, point.s2, point.s3];
+
+        values.forEach((dist, index) => {
+            const maxHeight = TANKS[index].height;
+            const level = Math.max(0, maxHeight - dist);
+            const pct = (level / maxHeight) * 100;
+            const vol = (level / maxHeight) * TANKS[index].capacity;
+            row.push(dist.toFixed(1), level.toFixed(1), vol.toFixed(1), pct.toFixed(1));
+        });
+
+        row.push(Number(point.suhu || 0).toFixed(1));
+        rows.push(row);
+    });
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'RO Monitoring');
+    XLSX.writeFile(workbook, `RO_${todayKey}.xlsx`);
+}
+
+function fetchFirebaseData() {
+    const cacheBuster = Date.now();
+    const url = `${firebaseConfig.databaseURL}/sensor/data.json?_t=${cacheBuster}`;
+
+    fetch(url, {
+        cache: 'no-cache',
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    })
+    .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then((data) => {
+        if (!data) {
+            throw new Error('Firebase returned empty data');
+        }
+
+        const sensor1 = Number(data.sensor1 || 0);
+        const sensor2 = Number(data.sensor2 || 0);
+        const sensor3 = Number(data.sensor3 || 0);
+        const suhu = Number(data.suhu || 0);
+
+        lastDataTimestamp = Date.now();
+        addDataPoint(sensor1, sensor2, sensor3, suhu);
+        console.log('✅ Firebase data updated:', { sensor1, sensor2, sensor3, suhu });
+    })
+    .catch((error) => {
+        console.warn('⚠️ Firebase error:', error.message);
+        document.getElementById('lastUpdate').innerText = 'Offline';
+        const realtimeStatus = document.getElementById('realtimeStatus');
+        if (realtimeStatus) realtimeStatus.textContent = 'Offline';
+    });
+}
+
+function seedDummyData() {
+    if (history.length > 0) {
+        return;
+    }
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    let ts = start.getTime();
+    const now = Date.now();
+    let count = 0;
+
+    while (ts <= now) {
+        const s1 = 110 + Math.random() * 40;
+        const s2 = 100 + Math.random() * 50;
+        const s3 = 60 + Math.random() * 30;
+        const suhu = 24 + Math.random() * 8;
+
+        history.push({
+            timestamp: ts,
+            s1,
+            s2,
+            s3,
+            suhu,
+            suhuRaw: suhu
+        });
+
+        if (new Date(ts).getHours() >= WORK_START_HOUR && new Date(ts).getHours() < WORK_END_HOUR) {
+            addDailyLogEntry(s1, s2, s3, suhu, ts);
+        }
+
+        ts += HISTORY_INTERVAL;
+        count += 1;
+    }
+
+    saveHistory();
+    saveDailyLogs();
+    updateRecordCount();
+    updateChart();
+    renderDailyLogTable();
+    console.log(`🌱 Seeded ${count} dummy points.`);
+}
+
 function toggleTheme() {
     const html = document.documentElement;
     const isDark = html.getAttribute('data-theme') === 'dark';
@@ -267,43 +479,65 @@ function toggleTheme() {
     icon.className = isDark ? 'fas fa-moon' : 'fas fa-sun';
 }
 
-// ============================================================
-// INTERVAL CONTROL
-// ============================================================
 function startAutoUpdate() {
     if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
-        console.log('🛑 Old interval stopped.');
     }
-    
-    console.log(`🔄 Starting auto-update with interval: ${updateInterval/1000} detik`);
-    
-    // Fetch pertama segera
+
     fetchFirebaseData();
-    
-    // Set interval baru
-    intervalId = setInterval(function() {
-        console.log(`⏰ Auto-update trigger at ${new Date().toLocaleTimeString()}`);
-        fetchFirebaseData();
-    }, updateInterval);
-    
-    let display = '';
-    if (updateInterval >= 60000) {
-        display = (updateInterval / 60000) + ' menit';
-    } else {
-        display = (updateInterval / 1000) + ' detik';
-    }
-    document.getElementById('currentInterval').innerText = display;
-    console.log(`✅ Auto-update running: every ${display}`);
+    intervalId = setInterval(fetchFirebaseData, updateInterval);
+
+    let display = updateInterval >= 60000 ? `${updateInterval / 60000} menit` : `${updateInterval / 1000} detik`;
+    document.getElementById('currentInterval').innerText = display.includes('menit') ? display.replace(' menit', '') : display.replace(' detik', '');
 }
 
-// ============================================================
-// INIT
-// ============================================================
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Dashboard initializing...');
+function downloadTodayLog() {
+    const todayKey = getDateKey();
+    exportDailyLog(todayKey);
+}
 
+function downloadAllLogs() {
+    const uniqueDays = [...new Set(dailyLogs.map((log) => log.dateKey))].sort((a, b) => a.localeCompare(b));
+    if (!uniqueDays.length) {
+        alert('Belum ada log untuk di-download.');
+        return;
+    }
+
+    const rows = [
+        [
+            'Tanggal',
+            'Timestamp',
+            'T1 Jarak (cm)', 'T1 Level (cm)', 'T1 Volume (L)', 'T1 %',
+            'T2 Jarak (cm)', 'T2 Level (cm)', 'T2 Volume (L)', 'T2 %',
+            'T3 Jarak (cm)', 'T3 Level (cm)', 'T3 Volume (L)', 'T3 %',
+            'Temperature (°C)'
+        ]
+    ];
+
+    uniqueDays.forEach((dateKey) => {
+        dailyLogs.filter((log) => log.dateKey === dateKey).forEach((log) => {
+            const row = [dateKey, new Date(log.timestamp).toLocaleString()];
+            const values = [log.sensor1, log.sensor2, log.sensor3];
+            values.forEach((dist, index) => {
+                const maxHeight = TANKS[index].height;
+                const level = Math.max(0, maxHeight - dist);
+                const pct = (level / maxHeight) * 100;
+                const vol = (level / maxHeight) * TANKS[index].capacity;
+                row.push(dist.toFixed(1), level.toFixed(1), vol.toFixed(1), pct.toFixed(1));
+            });
+            row.push(Number(log.suhu || 0).toFixed(1));
+            rows.push(row);
+        });
+    });
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'RO_All_Logs');
+    XLSX.writeFile(workbook, 'RO_All_Logs.xlsx');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     initChart();
 
@@ -311,59 +545,60 @@ document.addEventListener('DOMContentLoaded', function() {
         seedDummyData();
     }
 
-    updateChart();
+    renderDailyLogTable();
     updateRecordCount();
+    updateChart();
+    updateStatusIndicators();
 
-    // ===== SETUP INTERVAL DARI DROPDOWN =====
     const select = document.getElementById('intervalSelect');
     if (select) {
-        updateInterval = parseInt(select.value) || 300000;
-        console.log(`📌 Default interval from dropdown: ${updateInterval/1000} detik`);
+        updateInterval = Number(select.value) || 2000;
         startAutoUpdate();
-        
-        select.addEventListener('change', function() {
-            updateInterval = parseInt(this.value);
-            console.log(`📌 Interval changed to: ${updateInterval/1000} detik`);
+
+        select.addEventListener('change', (event) => {
+            updateInterval = Number(event.target.value) || 2000;
             startAutoUpdate();
-            let display = '';
-            if (updateInterval >= 60000) {
-                display = (updateInterval / 60000) + ' menit';
-            } else {
-                display = (updateInterval / 1000) + ' detik';
-            }
-            alert(`Interval update diubah menjadi ${display}.`);
+            const display = updateInterval >= 60000 ? `${updateInterval / 60000} menit` : `${updateInterval / 1000} detik`;
+            document.getElementById('currentInterval').innerText = display;
         });
-    } else {
-        console.warn('⚠️ Dropdown interval tidak ditemukan, pakai default 5 menit');
-        updateInterval = 300000;
-        startAutoUpdate();
     }
 
-    // Event listeners tombol
+    setInterval(updateStatusIndicators, 5000);
+
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-    document.getElementById('exportExcel').addEventListener('click', exportExcel);
-    document.getElementById('refreshBtn').addEventListener('click', function() {
-        console.log('🔄 Manual refresh triggered.');
-        fetchFirebaseData();
+    const aboutProjectModal = document.getElementById('aboutProjectModal');
+    const openAboutProject = () => {
+        aboutProjectModal.classList.add('is-open');
+        aboutProjectModal.setAttribute('aria-hidden', 'false');
+        document.getElementById('closeAboutProject').focus();
+    };
+    const closeAboutProject = () => {
+        aboutProjectModal.classList.remove('is-open');
+        aboutProjectModal.setAttribute('aria-hidden', 'true');
+    };
+    document.getElementById('aboutProjectBtn').addEventListener('click', openAboutProject);
+    document.getElementById('closeAboutProject').addEventListener('click', closeAboutProject);
+    aboutProjectModal.addEventListener('click', (event) => {
+        if (event.target.matches('[data-close-about]')) closeAboutProject();
     });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && aboutProjectModal.classList.contains('is-open')) closeAboutProject();
+    });
+    document.getElementById('exportExcel').addEventListener('click', exportExcel);
+    document.getElementById('refreshBtn').addEventListener('click', fetchFirebaseData);
+    document.getElementById('downloadTodayBtn').addEventListener('click', downloadTodayLog);
+    document.getElementById('downloadAllBtn').addEventListener('click', downloadAllLogs);
 
-    // Double-click title to seed dummy
-    const title = document.querySelector('.brand h1');
-    if (title) {
-        title.addEventListener('dblclick', function() {
-            if (confirm('Seed dummy data for testing?')) {
-                if (history.length > 0 && confirm('Clear existing history first?')) {
-                    history = [];
-                }
-                seedDummyData();
-                updateChart();
-                updateRecordCount();
-                alert(`✅ Seeded ${history.length} dummy points. Try export Excel now.`);
-            }
-        });
-        console.log('💡 Double-click the title to seed dummy data.');
-    }
-
-    console.log(`✅ Dashboard ready. History: ${history.length} points.`);
-    console.log(`✅ Auto-update running every ${updateInterval/1000} detik.`);
+    document.querySelector('.brand h1').addEventListener('dblclick', () => {
+        if (confirm('Seed dummy data for testing?')) {
+            history = [];
+            dailyLogs = [];
+            saveHistory();
+            saveDailyLogs();
+            seedDummyData();
+            renderDailyLogTable();
+            updateChart();
+            updateRecordCount();
+        }
+    });
 });
